@@ -1,0 +1,1693 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <div id="container"></div>
+  <title>ALLOTMENT3D</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <div class="starter"><img src="./graphics/title.png" alt="">
+    <div id="buttons">
+      <a target="_blank" href="./info.html">HELP</a>
+      <input type="text" placeholder="max add. range">
+      <div id="lang-check"><input type="checkbox" name="language" id="language"><label for="language">PL</label></div>
+      <button id="start_game">START</button>
+      <span id="loadfield">0%</span>
+    </div>
+  </div>
+  <div class="aim"></div>
+  <section></section>
+  <div id="lives-baner" class="hidden">
+    <div class="panel">
+      <img class='player' src="./graphics/player.png" alt="">
+      <span id="playerHearts"><img class='heart' src="./graphics/heart.png" alt="">
+        <img class='heart' src="./graphics/heart.png" alt="">
+        <img class='heart' src="./graphics/heart.png" alt=""></span>
+    </div>
+    <div class="panel">
+      <span id="enemyHearts"><img class='heart' src="./graphics/heart.png" alt="">
+        <img class='heart' src="./graphics/heart.png" alt="">
+        <img class='heart' src="./graphics/heart.png" alt=""></span>
+      <img class='player' src="./graphics/enemy.png" alt="">
+    </div>
+  </div>
+  <div id='notes' class="notes hidden"></div>
+
+  <div id='unclee' class="unclee hidden">
+    <img src='./graphics/unclee.png'>
+    <p id="unclee-text"></p>
+    <p style="text-align: center;" id="closeLine"></p>
+  </div>
+
+  <div id='riddle' class="hidden">
+    <p></p>
+    <input type="text" name="" id="riddleAns">
+    <button id="riddleCheckField">?</button>
+  </div>
+  <div id="mail"></div>
+  <audio id='money' src="./audio/mixkit-coins-handling-1939.wav"></audio>
+  <audio id="skeleton" src="./audio/laugh-454.mp3"></audio>
+  <audio id='darksoundtrack' loop src="./audio/house-phonk-dark-cowbells-melody_120bpm_C_minor.mp3"></audio>
+  <audio id='soundtrack'></audio>
+  <audio id='loseGameSound' src="./audio/loseGame.mp3"></audio>
+  <script type="module">
+    import * as THREE from './modules/three.module.js';
+    import { LDrawLoader } from './modules/LDrawLoader.js';
+    import { LDrawUtils } from './modules/LDrawUtils.js';
+    import { PointerLockControls } from './modules/PointerLockControls.js';
+    import { coords, riddles, gameNotes, uncleeLines, openClose, tracks } from './modules/data.js';
+    const container = document.getElementById('container');
+    let rangeValue = 20;
+    let tracksIndex = 0;
+    const notes = document.getElementById('notes');
+    const uncleeQuotes = document.getElementById('unclee');
+    let polishLang = false;
+    let endStory = false;
+
+    let lives = {
+      player: 3,
+      enemy: 3
+    }
+    let battleMode = false;
+    let riddleDiv = document.getElementById('riddle');
+    riddles.sort((a, b) => Math.random() - .5);
+    let riddlesCounter = 0;
+    let playerNotes = [];
+
+    let sounds = [
+      'mixkit-dog-barking-twice-1.wav',
+      'mixkit-little-bird-calling-chirp-23.wav',
+      'mixkit-little-cat-pain-meow-87.wav',
+      'mixkit-medium-size-angry-dog-bark-54.wav',
+      'mixkit-tropical-bird-squeak-27.wav',
+      'mixkit-wild-raven-bird-calling-62.wav'
+    ]
+
+    const livesBarField = document.getElementById('lives-baner');
+    const playerHearts = document.getElementById('playerHearts')
+    const enemyHearts = document.getElementById('enemyHearts')
+    const soundtrackField = document.getElementById('soundtrack');
+
+    const darkSoundtrackField = document.getElementById('darksoundtrack');
+    let points = 0;
+    let section = document.querySelector('section');
+    section.style.visibility = 'hidden';
+    let starter = document.querySelector('.starter');
+    section.innerText = `${points}/16`;
+    let aim = document.querySelector('.aim');
+    let globalObj = null;
+    let sink = false;
+    let sinkSpeed = 0.0001;
+    let collectionFlag = false;
+    let normalMode = true;
+    let driving = false;
+    let vehicleIsMoving = false;
+    let vehicleName = null;
+    var clock = new THREE.Clock();
+    let mail = document.getElementById('mail');
+    let minifigs = [];
+    for (let i = 1; i < 33; ++i) { minifigs.push(i) }
+    let playerCollection = new Array(32).fill(0);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0, 0.59, 1);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    let controls = new PointerLockControls(camera, document.body);
+
+    coords.sort(el => Math.random() - .5);
+
+    camera.position.set(3.85, 1.2, 6.5);
+
+    let light = new THREE.AmbientLight(0xdddddd);
+    scene.add(light);
+    let light2 = new THREE.DirectionalLight(0xffffff, .2);
+    light2.castShadow = true;
+    scene.add(light2);
+    let pointLight = new THREE.PointLight(0xffffff, 1, 5);
+
+    //MODELS
+    const raycaster = new THREE.Raycaster();
+    let pointer = new THREE.Vector3();
+
+    const geometry = new THREE.BoxGeometry();
+    const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+    material.needsUpdate = true;
+
+    var floorTexture = new THREE.TextureLoader().load('./graphics/grass1a.jpg')
+    floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+    floorTexture.repeat.set(40, 40);
+    var floorMaterial = new THREE.MeshPhongMaterial({ map: floorTexture, side: THREE.DoubleSide });
+    floorMaterial.needsUpdate = true;
+    var floorGeometry = new THREE.PlaneGeometry(90, 75, 40, 40);
+    var floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.receiveShadow = true;
+    floor.position.set(-1, -0.2, -2)
+    floor.rotation.x = Math.PI / 2;
+    scene.add(floor);
+
+    const cylinderGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.04, 32);
+    const cylinderMaterial = new THREE.MeshPhongMaterial({ color: 'gold' });
+
+    for (let i = 0; i < 16; ++i) {
+      let coin = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+      coin.position.set(coords[i].x, coords[i].y, coords[i].z)
+      scene.add(coin);
+    }
+
+    var oceanTexture = new THREE.TextureLoader().load('./graphics/ocean4.jpg')
+    oceanTexture.wrapS = oceanTexture.wrapT = THREE.RepeatWrapping;
+    oceanTexture.repeat.set(150, 150);
+    var oceanMaterial = new THREE.MeshPhongMaterial({ map: oceanTexture, side: THREE.DoubleSide });
+    var oceanGeometry = new THREE.PlaneGeometry(200, 200, 40, 40);
+    var ocean = new THREE.Mesh(oceanGeometry, oceanMaterial);
+    ocean.position.set(-1, -0.3, -2);
+    ocean.rotation.x = Math.PI / 2;
+    ocean.receiveShadow = true;
+    scene.add(ocean);
+
+    const geoFenNS = new THREE.BoxGeometry(25, 1.1, 1 / 6);
+    const geoFenWE = new THREE.BoxGeometry(1 / 6, 1.1, 18.7)
+    const fenMat = new THREE.MeshPhongMaterial({ color: '#804000' });
+    const fenceS = new THREE.Mesh(geoFenNS, fenMat)
+    fenceS.position.set(-9.06, .38, 6.85);
+
+    const fenceN = new THREE.Mesh(new THREE.BoxGeometry(26, 1.1, 1 / 6), fenMat)
+    fenceN.position.set(-8.4, .38, -11.8);
+
+    const fenceW = new THREE.Mesh(geoFenWE, fenMat)
+    fenceW.position.set(-21.45, .38, -2.5);
+
+    const fenceE = new THREE.Mesh(geoFenWE, fenMat)
+    fenceE.position.set(4.5, .38, -2.5);
+    scene.add(fenceS, fenceN, fenceW, fenceE);
+
+    let rockMaterial = new THREE.MeshPhongMaterial({ color: 'gray' });
+    rockMaterial.needsUpdate = true;
+    const rock = new THREE.Mesh(new THREE.BoxGeometry(18, 1, 10), rockMaterial);
+    rock.position.set(-33, 0.5, -32)
+    rock.receiveShadow = true;
+    rock.castShadow = true;
+    scene.add(rock);
+
+    const rock2 = new THREE.Mesh(new THREE.BoxGeometry(17, 1, 8), rockMaterial);
+    rock2.position.set(-33, 1.5, -32)
+    rock2.receiveShadow = true;
+    rock2.castShadow = true;
+    scene.add(rock2);
+
+    const rock3 = new THREE.Mesh(new THREE.BoxGeometry(15, 1, 6), rockMaterial);
+    rock3.position.set(-33, 2.5, -32)
+    rock3.receiveShadow = true;
+    rock3.castShadow = true;
+    scene.add(rock3);
+
+    const cube = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({ color: 'silver' }));
+    cube.position.set(-19.5, 0.5, 0)
+    cube.name = 'cube';
+    cube.receiveShadow = true;
+    cube.castShadow = true;
+
+    scene.add(cube);
+
+    const cube2 = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({ color: 'gold' }));
+    cube2.position.set(-19.5, 0.5, 2);
+    cube2.receiveShadow = true;
+    cube2.castShadow = true;
+    cube2.name = 'cube2';
+    scene.add(cube2);
+
+    const lDrawLoader = new LDrawLoader();
+    lDrawLoader.smoothNormals = false;
+
+    let plane, planeP, motor, motorMinifig, jeep, boat, skelet, amb, tractor, flatRadio, pShip, forest, polCar, polCarDark, swing, swingpart, houseWindow, houseDoor, jhome, jdoor, mhome, mdoor, wcDoor, ghdoor, mbaner, jbaner, boxDoor, postDoor, unclee;
+    let fly = true;
+    let swingForward = true;
+    let moveDoor = false;
+    let moveWindow = false;
+    let doorReverse = false;
+    let windowReverse = false;
+
+    let boatSpeed = 0.05;
+    const loadingField = document.getElementById('loadfield');
+    let loadData = 0;
+
+    lDrawLoader.load('./models/house.ldr_Packed.mpd', function (group) {
+      let house = LDrawUtils.mergeObject(group);
+      house.scale.set(0.013, 0.013, 0.013);
+      house.rotation.x = Math.PI;
+      house.position.y = 0.0;
+      house.castShadow = true;
+      house.receiveShadow = true;
+      scene.add(house);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/hDoor.ldr_Packed.mpd', function (groupDoor) {
+      houseDoor = LDrawUtils.mergeObject(groupDoor);
+      houseDoor.scale.set(0.013, 0.013, 0.013);
+      houseDoor.rotation.x = Math.PI;
+      houseDoor.name = 'houseDoor';
+      houseDoor.position.set(0.8999999999999992, 1.54, 0.655)
+      scene.add(houseDoor);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/hWindow.ldr_Packed.mpd', function (groupWindow) {
+      houseWindow = LDrawUtils.mergeObject(groupWindow);
+      houseWindow.scale.set(0.013, 0.013, 0.013);
+      houseWindow.rotation.x = Math.PI;
+      houseWindow.position.set(0.12999999999999998, 1.5600000000000012, 2.209999999999997);
+      houseWindow.name = 'houseWindow';
+      scene.add(houseWindow);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/wc.ldr_Packed.mpd', function (groupWC) {
+      let wc = LDrawUtils.mergeObject(groupWC);
+      wc.scale.set(0.013, 0.013, 0.013);
+      wc.rotation.x = Math.PI;
+      wc.rotation.y = -90 * Math.PI / 180;
+      wc.position.set(-17.5, -.1, 4);
+      wc.name = 'wc';
+      scene.add(wc);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/wcDoor.ldr_Packed.mpd', function (groupWCD) {
+      wcDoor = LDrawUtils.mergeObject(groupWCD);
+      wcDoor.scale.set(0.013, 0.013, 0.013);
+      wcDoor.rotation.x = Math.PI;
+      wcDoor.rotation.y = -90 * Math.PI / 180;
+      wcDoor.position.set(-17.10999999999994, 0, 4.13);
+      wcDoor.name = 'wcdoor';
+      scene.add(wcDoor);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/gh.ldr_Packed.mpd', function (groupG) {
+      let greenh = LDrawUtils.mergeObject(groupG);
+      greenh.scale.set(0.013, 0.013, 0.013);
+      greenh.rotation.x = Math.PI;
+      greenh.position.set(-3, 0, -7);
+      scene.add(greenh);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/ghdoor.ldr_Packed.mpd', function (groupGd) {
+      ghdoor = LDrawUtils.mergeObject(groupGd);
+      ghdoor.scale.set(0.013, 0.013, 0.013);
+      ghdoor.rotation.x = Math.PI;
+      ghdoor.position.set(-2.8700000000000028, 1.5600000000000012, -6.870000000000003);
+      ghdoor.name = 'ghdoor';
+      scene.add(ghdoor);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/pergola.ldr_Packed.mpd', function (groupPergola) {
+      let pergola = LDrawUtils.mergeObject(groupPergola);
+      pergola.scale.set(0.013, 0.013, 0.013);
+      pergola.rotation.x = Math.PI;
+      pergola.rotation.y = -90 * Math.PI / 180;
+      pergola.position.set(-8, 0, 3);
+      scene.add(pergola);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/bush.ldr_Packed.mpd', function (groupBush) {
+      let bush = LDrawUtils.mergeObject(groupBush);
+      bush.scale.set(0.013, 0.013, 0.013);
+      bush.rotation.x = Math.PI;
+      bush.position.set(-12, 0, 2);
+      scene.add(bush);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/bench1.ldr_Packed.mpd', function (groupbench1) {
+      let bench1 = LDrawUtils.mergeObject(groupbench1);
+      bench1.scale.set(0.013, 0.013, 0.013);
+      bench1.rotation.x = Math.PI;
+      bench1.rotation.y = 90 * Math.PI / 180;
+      bench1.position.set(-12, 0, -4.2);
+      scene.add(bench1);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/bench2.ldr_Packed.mpd', function (groupbench2) {
+      let bench2 = LDrawUtils.mergeObject(groupbench2);
+      bench2.scale.set(0.013, 0.013, 0.013);
+      bench2.rotation.x = Math.PI;
+      bench2.rotation.y = 90 * Math.PI / 180;
+      bench2.position.set(3.5, 0, -5);
+      scene.add(bench2);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/street.ldr_Packed.mpd', function (groupStreet) {
+      let street = LDrawUtils.mergeObject(groupStreet);
+      street.scale.set(0.013, 0.013, 0.013);
+      street.rotation.x = Math.PI;
+      street.position.y = -0.1;
+      scene.add(street);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/boxDoor.ldr_Packed.mpd', function (groupBoxDoor) {
+      boxDoor = LDrawUtils.mergeObject(groupBoxDoor);
+      boxDoor.scale.set(0.013, 0.013, 0.013);
+      boxDoor.rotation.x = Math.PI;
+      boxDoor.rotation.y = Math.PI / 2;
+      boxDoor.name = 'boxDoor';
+      boxDoor.position.set(19.240000000000038, 0.6200000000000003, -30.870000000000136);
+      scene.add(boxDoor);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/postDoor.ldr_Packed.mpd', function (groupPostDoor) {
+      postDoor = LDrawUtils.mergeObject(groupPostDoor);
+      postDoor.scale.set(0.013, 0.013, 0.013);
+      postDoor.rotation.x = Math.PI;
+      postDoor.rotation.y = Math.PI / 2;
+      postDoor.name = 'postDoor';
+      postDoor.position.set(20.41000000000022, 1.5, -31.2900000000002);
+      scene.add(postDoor);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/flowers.ldr_Packed.mpd', function (groupFlo) {
+      let flowers = LDrawUtils.mergeObject(groupFlo);
+      flowers.scale.set(0.013, 0.013, 0.013);
+      flowers.rotation.x = Math.PI;
+      flowers.rotation.y = 90 * Math.PI / 180;
+      flowers.position.set(-5, 0, 0)
+      scene.add(flowers);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    let motorGroup = new THREE.Group(), motorW;
+    lDrawLoader.load('./models/motor.ldr_Packed.mpd', function (groupMotor) {
+      motor = LDrawUtils.mergeObject(groupMotor);
+      motor.scale.set(0.013, 0.013, 0.013);
+      motor.rotation.x = Math.PI;
+      motor.rotation.y = Math.PI;
+      motor.position.set(0, 0, 0);
+      motor.name = 'motor';
+      motorGroup.add(motor);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/motorMinifig.ldr_Packed.mpd', function (groupMotor) {
+      motorMinifig = LDrawUtils.mergeObject(groupMotor);
+      motorMinifig.scale.set(0.013, 0.013, 0.013);
+      motorMinifig.rotation.x = Math.PI;
+      motorMinifig.rotation.y = Math.PI;
+      motorMinifig.position.set(0, 0, 0);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/motorWheel.ldr_Packed.mpd', function (groupMotorW) {
+      motorW = LDrawUtils.mergeObject(groupMotorW);
+      motorW.scale.set(0.013, 0.013, 0.013);
+      motorW.rotation.x = Math.PI;
+      motorW.rotation.y = Math.PI;
+      motorW.position.set(.00, .24, .12);
+      motorGroup.add(motorW);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    motorGroup.position.set(17.5, -0.04, 15.5);
+    motorGroup.rotation.y = Math.PI / 2;
+
+    let planeGroup = new THREE.Group();
+    lDrawLoader.load('./models/plane.ldr_Packed.mpd', function (groupPlane) {
+      plane = LDrawUtils.mergeObject(groupPlane);
+      plane.scale.set(0.013, 0.013, 0.013);
+      plane.rotation.x = Math.PI;
+      plane.position.set(0, 0, 0)
+      planeGroup.add(plane);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/planeProp.ldr_Packed.mpd', function (groupPlaneProp) {
+      planeP = LDrawUtils.mergeObject(groupPlaneProp);
+      planeP.scale.set(0.013, 0.013, 0.013);
+      planeP.rotation.x = Math.PI;
+      planeP.position.set(0, 0, 0)
+      planeGroup.add(planeP);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    planeGroup.position.set(0, 5, 0);
+    planeGroup.rotation.y = Math.PI / 2;
+    scene.add(planeGroup);
+
+    lDrawLoader.load('./models/boat.ldr_Packed.mpd', function (groupBoat) {
+      boat = LDrawUtils.mergeObject(groupBoat);
+      boat.scale.set(0.013, 0.013, 0.013);
+      boat.rotation.x = Math.PI;
+      boat.position.set(-53, 0, -32)
+      scene.add(boat);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/castle.ldr_Packed.mpd', function (groupCastle) {
+      let t = LDrawUtils.mergeObject(groupCastle);
+      t.scale.set(0.013, 0.013, 0.013);
+      t.rotation.x = Math.PI;
+      t.rotation.y = Math.PI / 2;
+      t.position.set(-34, 3.1, -33)
+      scene.add(t);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/skelet.ldr_Packed.mpd', function (groupSkelet) {
+      skelet = LDrawUtils.mergeObject(groupSkelet);
+      skelet.scale.set(0.013, 0.013, 0.013);
+      skelet.rotation.x = Math.PI;
+      skelet.position.set(-33.6, 3.15, -34.37);
+      skelet.name = 'skelet';
+      scene.add(skelet);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/policeCarMOC.ldr_Packed.mpd', function (groupPolCar) {
+      polCar = LDrawUtils.mergeObject(groupPolCar);
+      polCar.scale.set(0.013, 0.013, 0.013);
+      polCar.rotation.x = Math.PI;
+      polCar.rotation.y = -Math.PI;
+      polCar.position.set(-14, -0.05, -20);
+      scene.add(polCar);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/policeCarMOCdark.ldr_Packed.mpd', function (groupDarkPolCar) {
+      polCarDark = LDrawUtils.mergeObject(groupDarkPolCar);
+      polCarDark.scale.set(0.013, 0.013, 0.013);
+      polCarDark.rotation.x = Math.PI;
+      polCarDark.rotation.y = -Math.PI;
+      polCarDark.position.set(-14, -0.05, -20);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    /* Jeep Wheels start*/
+    let jeepGroup = new THREE.Group(), jw1, jw2, jw3, jw4;
+
+    lDrawLoader.load('./models/jeepMOC4wWheels.ldr_Packed.mpd', function (groupJeep) {
+      jeep = LDrawUtils.mergeObject(groupJeep);
+      jeep.scale.set(0.013, 0.013, 0.013);
+      jeep.rotation.x = Math.PI;
+      jeep.rotation.y = Math.PI;
+      jeep.position.set(0, 0, .5);
+      jeep.name = 'jeep';
+      jeepGroup.add(jeep);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+
+    lDrawLoader.load('./models/jeepWheel.ldr_Packed.mpd', function (groupJeep) {
+      jw1 = LDrawUtils.mergeObject(groupJeep);
+      jw1.scale.set(0.013, 0.013, 0.013);
+      jw1.rotation.x = Math.PI;
+      jw1.position.set(.38, -.2, 1);
+      jw1.name = 'jw1';
+      jeepGroup.add(jw1);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/jeepWheel.ldr_Packed.mpd', function (groupJeep) {
+      jw2 = LDrawUtils.mergeObject(groupJeep);
+      jw2.scale.set(0.013, 0.013, 0.013);
+      jw2.rotation.x = Math.PI;
+      jw2.position.set(.38, -.2, -.5);
+      jw2.name = 'jw2';
+      jeepGroup.add(jw2);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/jeepWheel.ldr_Packed.mpd', function (groupJeep) {
+      jw3 = LDrawUtils.mergeObject(groupJeep);
+      jw3.scale.set(0.013, 0.013, 0.013);
+      jw3.rotation.x = Math.PI;
+      jw3.rotation.y = Math.PI;
+      jw3.position.set(-.38, -.2, 1);
+      jw3.name = 'jw3';
+      jeepGroup.add(jw3);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/jeepWheel.ldr_Packed.mpd', function (groupJeep) {
+      jw4 = LDrawUtils.mergeObject(groupJeep);
+      jw4.scale.set(0.013, 0.013, 0.013);
+      jw4.rotation.x = Math.PI;
+      jw4.rotation.y = Math.PI;
+      jw4.position.set(-.38, -.2, -.5);
+      jw4.name = 'jw4';
+      jeepGroup.add(jw4);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    jeepGroup.rotation.y = -210 * Math.PI / 180;
+    jeepGroup.position.set(16, 0.50, -32);
+    /* Jeep Wheels end */
+
+
+    lDrawLoader.load('./models/ambulanceMOC.ldr_Packed.mpd', function (groupAmbulance) {
+      amb = LDrawUtils.mergeObject(groupAmbulance);
+      amb.scale.set(0.013, 0.013, 0.013);
+      amb.rotation.x = Math.PI;
+      amb.rotation.y = 30 * Math.PI / 180;
+      amb.position.set(-18, 0.48, -32);
+      amb.name = 'ambulance';
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    let group = new THREE.Group();
+    let c1, c2, c3, c4, tractorMinifig;
+
+    lDrawLoader.load('./models/tractorMOCnoWheels.ldr_Packed.mpd', function (groupTractor) {
+      tractor = LDrawUtils.mergeObject(groupTractor);
+      tractor.scale.set(0.013, 0.013, 0.013);
+      tractor.rotation.x = Math.PI;
+      tractor.rotation.y = 180 * Math.PI / 180;
+      tractor.position.set(0, 0, 0);
+      tractor.name = 'tractor';
+      group.add(tractor);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/tractorMOCWheel.ldr_Packed.mpd', function (groupc4) {
+      c4 = LDrawUtils.mergeObject(groupc4);
+      c4.scale.set(0.013, 0.013, 0.013);
+      c4.rotation.x = Math.PI;
+      c4.rotation.y = -90 * Math.PI / 180;
+      c4.position.set(.400, .3, .50);
+      c4.name = 'c4'
+      group.add(c4);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/tractorMOCWheel.ldr_Packed.mpd', function (groupCar1) {
+      c1 = LDrawUtils.mergeObject(groupCar1);
+      c1.scale.set(0.013, 0.013, 0.013);
+      c1.rotation.x = Math.PI;
+      c1.rotation.y = -90 * Math.PI / 180;
+      c1.position.set(0.400, .3, -.50);
+      c1.name = 'c1'
+      group.add(c1);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/tractorMOCWheel.ldr_Packed.mpd', function (groupCar2) {
+      c2 = LDrawUtils.mergeObject(groupCar2);
+      c2.scale.set(0.013, 0.013, 0.013);
+      c2.rotation.x = Math.PI;
+      c2.rotation.y = 90 * Math.PI / 180;
+      c2.position.set(-0.400, .3, -.50);
+      c2.name = 'c2'
+      group.add(c2);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/tractorMOCWheel.ldr_Packed.mpd', function (groupCar3) {
+      c3 = LDrawUtils.mergeObject(groupCar3);
+      c3.scale.set(0.013, 0.013, 0.013);
+      c3.rotation.x = Math.PI;
+      c3.rotation.y = 90 * Math.PI / 180;
+      c3.position.set(-0.400, .3, .50);
+      c3.name = 'c3'
+      group.add(c3);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/tractorMOCMinifig.ldr_Packed.mpd', function (groupTractor) {
+      tractorMinifig = LDrawUtils.mergeObject(groupTractor);
+      tractorMinifig.scale.set(0.013, 0.013, 0.013);
+      tractorMinifig.rotation.x = Math.PI;
+      tractorMinifig.rotation.y = 180 * Math.PI / 180;
+      tractorMinifig.position.set(0, 0, 0);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+
+    group.position.set(22, -0.02, -4);
+    group.rotation.y = -45 * Math.PI / 180;
+
+
+    lDrawLoader.load('./models/radio.ldr_Packed.mpd', function (groupFlatR) {
+      flatRadio = LDrawUtils.mergeObject(groupFlatR);
+      flatRadio.scale.set(0.013, 0.013, 0.013);
+      flatRadio.rotation.x = Math.PI;
+      flatRadio.rotation.y = -90 * Math.PI / 180;
+      flatRadio.position.set(1.2, 0.45, -1.95);
+      flatRadio.name = 'radio';
+      scene.add(flatRadio)
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+    
+    
+
+    lDrawLoader.load('./models/shipMOC.ldr_Packed.mpd', function (groupPirateShip) {
+      pShip = LDrawUtils.mergeObject(groupPirateShip);
+      pShip.scale.set(0.013, 0.013, 0.013);
+      pShip.rotation.x = Math.PI;
+      pShip.rotation.y = 180 * Math.PI / 180;
+      pShip.position.set(-48, -.3, -60);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/df.ldr_Packed.mpd', function (groupForest) {
+      forest = LDrawUtils.mergeObject(groupForest);
+      forest.scale.set(0.013, 0.013, 0.013);
+      forest.rotation.x = Math.PI;
+      forest.position.set(39, .3, 22);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/jhome.ldr_Packed.mpd', function (groupJhome) {
+      jhome = LDrawUtils.mergeObject(groupJhome);
+      jhome.scale.set(0.013, 0.013, 0.013);
+      jhome.rotation.x = Math.PI;
+      jhome.rotation.y = Math.PI / 2
+      jhome.position.set(-36, 0, 26);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/jdoor.ldr_Packed.mpd', function (groupJdoor) {
+      jdoor = LDrawUtils.mergeObject(groupJdoor);
+      jdoor.scale.set(0.013, 0.013, 0.013);
+      jdoor.rotation.x = Math.PI;
+      jdoor.rotation.y = -Math.PI / 2;
+      jdoor.position.set(-34.820000000000235, 0.01, 27.420000000000222);
+      jdoor.name = 'jdoor';
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/jbaner.ldr_Packed.mpd', function (groupJbaner) {
+      jbaner = LDrawUtils.mergeObject(groupJbaner);
+      jbaner.scale.set(0.013, 0.013, 0.013);
+      jbaner.rotation.x = Math.PI;
+      jbaner.position.set(-36.00202720899069, 5, 27.28313282801459);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/mhome.ldr_Packed.mpd', function (groupMhome) {
+      mhome = LDrawUtils.mergeObject(groupMhome);
+      mhome.scale.set(0.013, 0.013, 0.013);
+      mhome.rotation.x = Math.PI;
+      mhome.position.set(32, 0,24);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/mdoor.ldr_Packed.mpd', function (groupMdoor) {
+      mdoor = LDrawUtils.mergeObject(groupMdoor);
+      mdoor.scale.set(0.013, 0.013, 0.013);
+      mdoor.rotation.x = Math.PI;
+      mdoor.position.set(33.429999999999715, 0.24000000000000007, 26.210000000000345);
+      mdoor.name = 'mdoor';
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/mbaner.ldr_Packed.mpd', function (groupMbaner) {
+      mbaner = LDrawUtils.mergeObject(groupMbaner);
+      mbaner.scale.set(0.013, 0.013, 0.013);
+      mbaner.rotation.x = Math.PI;
+      mbaner.position.set(33.07246568875689, 4.50, 25.05);
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/swingMain.ldr_Packed.mpd', function (groupSwing) {
+      swing = LDrawUtils.mergeObject(groupSwing);
+      swing.scale.set(0.013, 0.013, 0.013);
+      swing.rotation.x = Math.PI;
+      swing.position.set(-12, .3, -.3);
+      scene.add(swing)
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/swingPart.ldr_Packed.mpd', function (groupSwingPart) {
+      swingpart = LDrawUtils.mergeObject(groupSwingPart);
+      swingpart.scale.set(0.013, 0.013, 0.013);
+      swingpart.rotation.x = Math.PI;
+      swingpart.position.set(-12, 1.9700000000000013, -0.16999999999999987);
+      scene.add(swingpart)
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/unclee.ldr_Packed.mpd', function (groupUnclee) {
+      unclee = LDrawUtils.mergeObject(groupUnclee);
+      unclee.scale.set(0.013, 0.013, 0.013);
+      unclee.rotation.x = Math.PI;
+      unclee.rotation.y = Math.PI / 2;
+      unclee.position.set(-43, -.2, -31);
+      unclee.name = 'unclee';
+      scene.add(unclee)
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    lDrawLoader.load('./models/uncleeBench.ldr_Packed.mpd', function (groupUnclee) {
+      let uncleeBench = LDrawUtils.mergeObject(groupUnclee);
+      uncleeBench.scale.set(0.013, 0.013, 0.013);
+      uncleeBench.rotation.x = Math.PI;
+      uncleeBench.rotation.y = Math.PI / 2;
+      uncleeBench.position.set(-43, -.2, -31);
+      scene.add(uncleeBench)
+      ++loadData;
+      loadingField.innerText = Math.floor(loadData * 100 / 50) + "%";
+      loadingField.style.width = Math.floor(loadData * 100 / 50) + '%';
+    })
+
+    //CONTROLS
+
+    document.addEventListener('keydown', logKey);
+    document.addEventListener('keyup', logKeyUp);
+
+    document.addEventListener('mousemove', () => {
+      pointer.position = camera.position;
+    })
+
+    function handleMessage(key, text = "") {
+      playerNotes.push(gameNotes[polishLang ? 'pl' : 'eng'][key] + text);
+      mail.innerHTML = `<img src='graphics/mail.png'>`;
+    }
+
+    function startStory() { }
+
+    //Math game ------------------------------------------------
+
+    function evaluationMiniGame() {
+
+      function checkAnswer() {
+        let nums = document.querySelector('#mathSpan').innerText.match(/\d+/g).reduce((a, b) => +a + +b);
+        let answer = document.querySelector('#mathAns').value;
+        if (typeof nums == 'number' && nums == answer) {
+          scene.remove(globalObj);
+          globalObj = null;
+          var audio = document.querySelector("#money");
+          audio.currentTime = 0;
+          audio.play();
+          ++points;
+          playerCollection.splice(-2);
+          playerCollection.unshift(...minifigs.splice(0, 2))
+          section.innerText = `${points}/16`;
+          if (points == 2) { scene.add(group); handleMessage('vehicle', polishLang ? "traktor" : "tractor") };
+          if (points == 6) { scene.add(amb); handleMessage('vehicle', polishLang ? "karetka" : "ambulance") };
+          if (points == 10) { scene.add(jeepGroup); handleMessage('vehicle', "jeep") };
+          if (points == 14) { scene.add(motorGroup); handleMessage('vehicle', polishLang ? "motor" : "motorbike") };
+          if (points == 16) { handleMessage('allCoins') }
+          document.body.removeChild(display);
+          document.addEventListener('click', clickEventHandler);
+          controls.lock();
+        }
+        else { p.style.color = 'red' }
+      }
+
+      document.removeEventListener('click', clickEventHandler);
+      let display = document.createElement('div');
+      display.setAttribute('class', 'display');
+      let div = document.createElement('div');
+      let span = document.createElement('span');
+      span.setAttribute('id', 'mathSpan');
+      let input = document.createElement('input');
+      input.setAttribute('type', 'text');
+      input.setAttribute('id', 'mathAns');
+      let buttonA = document.createElement('button');
+      buttonA.innerText = polishLang ? 'Sprawdź' : 'Check';
+      buttonA.addEventListener('click', checkAnswer);
+
+      div.appendChild(span);
+      div.appendChild(input);
+      display.appendChild(div);
+      display.appendChild(buttonA);
+      document.body.appendChild(display);
+
+      controls.unlock();
+
+      let num1 = Math.floor(Math.random() * (rangeValue - 1 + 1)) + 1;
+      let num2 = Math.floor(Math.random() * (rangeValue - 1 + 1)) + 1;
+
+      let p = document.querySelector('#mathSpan');
+      p.innerText = `${num1} + ${num2} = `;
+
+    }
+    //End of Math game --------------------------
+
+    function playSoundtrack() {
+      if (normalMode) {
+        darkSoundtrackField.pause();
+        soundtrackField.src = './audio/' + tracks[tracksIndex];
+        soundtrackField.volume = .2;
+        soundtrackField.play();
+      }
+    }
+
+    function playDarkSoundtrack() {
+      soundtrackField.pause();
+      darkSoundtrackField.play();
+    }
+
+    function darken(flag) {
+      if (!flag) {
+        scene.remove(planeGroup);
+        scene.remove(boat);
+        scene.remove(unclee);
+        scene.add(forest);
+        scene.add(pShip);
+        scene.remove(polCar);
+        scene.add(polCarDark);
+        skelet.position.set(-49, .9, -60.5);
+        skelet.rotation.y = -90 * Math.PI / 180;
+        scene.background = new THREE.Color(0, 0, .4);
+        playDarkSoundtrack();
+        handleMessage('dark')
+        scene.remove(light)
+        light = new THREE.AmbientLight(0x333, 0.008);
+        scene.add(light);
+        camera.position.set(43, 1.2, 34);
+        aim.style.background = 'yellow';
+        livesBarField.classList.remove('hidden');
+        livesBarField.classList.add('flex');
+      }
+      else {
+        scene.add(planeGroup);
+        scene.add(boat);
+        scene.add(unclee);
+        scene.remove(forest);
+        scene.remove(polCarDark);
+        scene.add(polCar);
+        sink = true;
+        scene.remove(skelet);
+        scene.background = new THREE.Color(0, 0.59, 1);
+        playSoundtrack();
+        scene.remove(light)
+        light = new THREE.AmbientLight(0xdddddd);
+        scene.add(light, flatRadio, mhome, mdoor, mbaner, jhome, jdoor, jbaner);
+        aim.style.background = 'white';
+        livesBarField.classList.remove('flex');
+        livesBarField.classList.add('hidden');
+        handleMessage('escape');
+        if (!scene.children.includes(pointLight)) scene.remove(pointLight)
+      }
+    }
+
+    function loseGame() {
+      soundtrackField.pause();
+      let background = document.createElement('div');
+      background.setAttribute('id', 'lose');
+      document.body.appendChild(background);
+      document.querySelector('#loseGameSound').play();
+    }
+
+    let n1 = 0, n2 = 0;
+    function handleRiddle() {
+      controls.unlock();
+      function getRandomNum() {
+        return Math.floor(Math.random() * (9 - 1 + 1)) + 1;
+      }
+
+      n1 = getRandomNum(), n2 = getRandomNum();
+      if (riddleDiv.classList.contains('hidden')) riddleDiv.classList.remove('hidden');
+      document.removeEventListener('click', clickEventHandler);
+      controls.unlock();
+      document.querySelector('#riddleCheckField').addEventListener('click', checkRiddleAns);
+      let children = [...riddleDiv.children];
+      if (lives.player > 0 && lives.enemy > 0) {
+        children[0].innerText = n1 + " * " + n2 + " = ?";
+        children[1].value = '';
+      }
+    }
+
+    function checkRiddleAns() {
+      let ans = document.querySelector('#riddleAns').value;
+      if (+ans == n1 * n2) {
+        lives.enemy--;
+        enemyHearts.children[0].remove()
+        let darkHeart = "<img class='heart' src='./graphics/heartG.png'>";
+        enemyHearts.innerHTML += darkHeart;
+      }
+      if (+ans != n1 * n2) {
+        lives.player--;
+        playerHearts.children[0].remove()
+        let darkHeart = "<img class='heart' src='./graphics/heartG.png'>";
+        playerHearts.innerHTML += darkHeart;
+      }
+      controls.lock();
+
+      document.addEventListener('click', clickEventHandler);
+      if (lives.player > 0 && lives.enemy > 0) { riddlesCounter++; handleRiddle(); }
+      else if (lives.enemy <= 0) { riddleDiv.classList.add('hidden'); normalMode = true; darken(normalMode) }
+      else if (lives.player <= 0) { loseGame() };
+    }
+
+    function closeUncleeWindow(event) {
+      uncleeQuotes.classList.add('hidden');
+      controls.lock();
+      document.addEventListener('click', clickEventHandler, true);
+    }
+
+    function clickEventHandler() {
+      let res = raycaster.intersectObjects(scene.children).filter(el => el.object.type == 'Mesh');
+
+
+      if (res[0].object.geometry.type == 'CylinderGeometry') {
+        globalObj = res[0].object;
+        evaluationMiniGame();
+      }
+
+      if (res[0].object.parent.name == 'skelet') {
+        if (points == 16 && !battleMode) {
+          let chuckle = document.querySelector('#skeleton');
+          controls.unlock();
+          camera.position.x += 5;
+          let skeletDisplay = document.createElement('div');
+          skeletDisplay.id = 'story';
+          let storyImg = document.createElement('img');
+          storyImg.src = './story/skeletDark.png';
+
+          skeletDisplay.appendChild(storyImg);
+          document.body.appendChild(skeletDisplay);
+          soundtrackField.pause();
+          chuckle.play();
+          normalMode = false;
+
+          skeletDisplay.addEventListener('click', () => {
+            controls.lock();
+            battleMode = true;
+            darken(normalMode);
+            document.body.removeChild(skeletDisplay);
+          })
+
+        }
+        else if (points < 16) {
+          handleMessage('notEnough')
+        }
+        else if (battleMode && (lives.player > 0 || lives.enemy > 0)) {
+          handleRiddle();
+        }
+      }
+
+      if (res[0].object.parent.name == 'houseDoor') {
+        openClose['door'].move = true;
+      }
+
+      if (res[0].object.parent.name == 'houseWindow') {
+        openClose['window'].move = true;
+      }
+
+      if (res[0].object.parent.name == 'wcdoor') {
+        openClose['wcdoor'].move = true;
+      }
+
+      if (res[0].object.parent.name == 'jdoor') {
+        openClose['jdoor'].move = true;
+      }
+
+      if (res[0].object.parent.name == 'mdoor') {
+        openClose['mdoor'].move = true;
+      }
+
+      if (res[0].object.parent.name == 'ghdoor') {
+        openClose['ghdoor'].move = true;
+      }
+
+      if (res[0].object.parent.name == 'boxDoor') {
+        openClose['boxDoor'].move = true;
+      }
+
+      if (res[0].object.parent.name == 'postDoor') {
+        openClose['postDoor'].move = true;
+      }
+
+      if (res[0].object.parent.name == 'motor' && res[0].distance < 2) {
+        driving = true;
+        vehicleName = 'motor'
+      }
+
+      if (res[0].object.parent.name == 'jeep' && res[0].distance < 2) {
+        driving = true;
+        vehicleName = 'jeep'
+      }
+
+      if (res[0].object.parent.name == 'ambulance' && res[0].distance < 2) {
+        driving = true;
+        vehicleName = 'ambulance'
+      }
+
+      if (res[0].object.parent.name == 'tractor' && res[0].distance < 2) {
+        driving = true;
+        vehicleName = 'tractor'
+      }
+
+      if (res[0].object.parent.name == 'unclee' && res[0].distance < 2) {
+        uncleeQuotes.classList.remove('hidden');
+        controls.unlock();
+        let uncleeParagraph = document.getElementById('unclee-text');
+        let closeLine = document.getElementById('closeLine');
+        closeLine.innerText = polishLang ? "Wciśnij U by zamknąć" : "Press U to close";
+        if (uncleeLines.start) {
+          uncleeLines.start = false;
+          uncleeParagraph.innerText = uncleeLines[polishLang ? 'pl' : 'eng'].startingLine;
+        }
+        else {
+          uncleeParagraph.innerText = uncleeLines[polishLang ? 'pl' : 'eng'].lines[Math.floor(Math.random() * (uncleeLines[polishLang ? 'pl' : 'eng'].lines.length))]
+        }
+      }
+
+      if (res[0].object.name == 'cube' && res[0].distance < 2) {
+        console.log('cube')
+        handleTask(0)
+      }
+
+      if (res[0].object.name == 'cube2' && res[0].distance < 2) {
+        console.log('cube2')
+        handleTask(1)
+      }
+
+      if (res[0].object.parent.name == 'radio' && res[0].distance < 2) {
+        let sound = document.createElement('audio');
+        sound.src = 'audio/' + sounds[Math.floor(Math.random() * sounds.length)];
+        sound.play();
+      }
+    }
+
+    function handleTask(flag) {
+      let num1, num2;
+
+      if (!flag) {
+        num1 = Math.floor(Math.random() * rangeValue) + 1;
+        num2 = Math.floor(Math.random() * rangeValue) + 1;
+      }
+      else {
+        num1 = Math.floor(Math.random() * 9) + 1;
+        num2 = Math.floor(Math.random() * 9) + 1;
+      }
+
+      let taskDisplay = document.createElement('div');
+      taskDisplay.id = 'task';
+      taskDisplay.classList = 'display';
+      let p = document.createElement('h1');
+      p.innerText = flag ? `${num1} * ${num2}` : `${num1} + ${num2}`;
+      let inp = document.createElement('input');
+      let closingButton = document.createElement('button');
+      let button = document.createElement('button');
+      button.innerText = 'Check';
+      closingButton.innerHTML = 'X';
+      closingButton.id = 'closingButton';
+
+
+      taskDisplay.appendChild(closingButton);
+      taskDisplay.appendChild(p);
+      taskDisplay.appendChild(inp);
+      taskDisplay.appendChild(button);
+
+      controls.unlock();
+      document.removeEventListener('click', clickEventHandler);
+      document.body.appendChild(taskDisplay);
+
+      closingButton.addEventListener('click', function () {
+        document.body.removeChild(taskDisplay);
+        controls.lock();
+        setTimeout(() => {
+          document.addEventListener('click', clickEventHandler)
+        }, 1)
+      })
+
+      button.addEventListener('click', function () {
+        if (flag && inp.value == num1 * num2) {
+          document.body.removeChild(taskDisplay);
+          cube2.rotation.y += .1;
+          handleTask(1)
+        }
+        if (!flag && inp.value == num1 + num2) {
+          cube.rotation.y -= .1;
+          document.body.removeChild(taskDisplay);
+          handleTask(0)
+        }
+        if (flag && inp.value != num1 * num2) {
+          p.style.color = 'red';
+        }
+        if (!flag && inp.value != num1 + num2) {
+          p.style.color = 'red';
+        }
+      })
+    }
+
+    document.addEventListener('click', clickEventHandler);
+    document.querySelector('#start_game').addEventListener('click', startGame)
+    document.getElementById('language').addEventListener('change', function () {
+      polishLang = this.checked;
+    })
+
+    function startGame() {
+      let userValue = +document.querySelector('#buttons input').value;
+      if (typeof userValue == 'number' && userValue > 9) rangeValue = userValue;
+      starter.style.display = 'none';
+
+      let storyDisplay = document.createElement('div');
+      let mouseImg = document.createElement('img');
+      mouseImg.id = 'mouse';
+      mouseImg.src = './graphics/mouse.png';
+      let storyC = 1;
+      storyDisplay.id = 'story';
+      let storyImg = document.createElement('img');
+      storyImg.src = './story/s1.png';
+
+      storyDisplay.addEventListener('click', () => {
+        ++storyC;
+        if (storyC == 30) {
+          document.body.removeChild(storyDisplay);
+          controls.lock();
+          aim.style.visibility = 'visible';
+          section.style.visibility = 'visible';
+          tracks.sort((a, b) => Math.random() - .5);
+          playSoundtrack();
+
+          soundtrackField.addEventListener('ended', () => {
+            tracksIndex++;
+            if (tracksIndex > tracks.length - 1) tracksIndex = 0;
+            playSoundtrack();
+          })
+
+          if (points == 0 && playerNotes.length == 0) { handleMessage('start') }
+        }
+
+        storyImg.src = `./story/s${storyC}.png`;
+      }
+      )
+
+      storyDisplay.appendChild(storyImg);
+      storyDisplay.appendChild(mouseImg);
+      document.body.appendChild(storyDisplay);
+    }
+
+    const keys = {
+      w: false,
+      s: false,
+      a: false,
+      d: false,
+      m: false
+    }
+
+    function logKeyUp(e) {
+      if (driving) {
+        if (e.key == 'w') { keys['w'] = false; vehicleIsMoving = false }
+        if (e.key == 's') { keys['s'] = false; vehicleIsMoving = false }
+        if (e.key == 'a') { keys['a'] = false; }
+        if (e.key == 'd') { keys['d'] = false; }
+        if (e.key == 'm') { keys['m'] = false; }
+      }
+
+      if (!driving) {
+        if (e.key == 'w') { keys['w'] = false; }
+        if (e.key == 's') { keys['s'] = false; }
+        if (e.key == 'a') { keys['a'] = false; }
+        if (e.key == 'd') { keys['d'] = false; }
+      }
+    }
+
+    function logKey(e) {
+      if (!driving) {
+        if (e.key == 'w') { keys['w'] = true }
+        if (e.key == 's') { keys['s'] = true }
+        if (e.key == 'a') { keys['a'] = true; }
+        if (e.key == 'd') { keys['d'] = true; }
+
+        if (e.key == 'u') {
+          uncleeQuotes.classList.add('hidden');
+          controls.lock();
+        }
+
+      }
+
+      if (driving) {
+        if (e.key == 'w') { keys['w'] = true; vehicleIsMoving = true }
+        if (e.key == 's') { keys['s'] = true; vehicleIsMoving = true }
+        if (e.key == 'a') { keys['a'] = true; }
+        if (e.key == 'd') { keys['d'] = true; }
+        if (e.key == 'm') { keys['m'] = true; }
+      }
+      if (e.key == 'z' && camera.position.y < 10) { camera.position.y += 1 };
+      if (e.key == 'x' && camera.position.y >= 1.2) { camera.position.y -= 1 };
+
+      if (e.key == 'e') {
+        driving = false;
+        if (vehicleName != null) {
+          vehicleName = null;
+          aim.style.visibility = 'visible';
+          vehicleSpeed = 0;
+          camera.translateZ(-3);
+          camera.translateX(-1);
+          camera.position.y = 1.2;
+          if (motorGroup.children.length == 3) { motorGroup.children.pop() }
+          if (group.children.length == 6) { group.children.pop() }
+        }
+      }
+
+
+
+      if (e.key == 'n') {
+        notes.classList.toggle('hidden');
+        if (mail.children.length != 0) mail.innerHTML = "";
+        if (!JSON.stringify(notes.classList).includes('hidden')) {
+          notes.innerHTML = '';
+          for (let i = 0; i < playerNotes.length; ++i) {
+            notes.innerHTML += `<p>${playerNotes[i]}</p>`;
+          }
+          notes.scrollTo(0, notes.scrollHeight)
+        }
+      }
+
+      if (e.key == 'l') {
+        controls.lock();
+      }
+
+      if (e.key == 'f') {
+        if (!scene.children.includes(pointLight) && !driving) { scene.add(pointLight) }
+        else scene.remove(pointLight)
+      }
+
+      if (e.key == 'q') {
+        if (!collectionFlag) {
+          collectionFlag = true;
+          let collection = document.createElement('div');
+          collection.setAttribute('id', 'collection');
+          for (let i = 0; i < playerCollection.length; ++i) {
+            let img = document.createElement('img');
+            if (normalMode) img.setAttribute('src', `./minifigs/${playerCollection[i]}.jpg`);
+            if (!normalMode) img.setAttribute('src', `./minifigs/x.jpg`);
+            collection.appendChild(img)
+          }
+          document.body.appendChild(collection);
+        }
+        else {
+          collectionFlag = false;
+          document.body.removeChild(collection)
+        }
+
+      }
+
+    }
+
+    function walk() {
+      if (!driving) {
+        if (keys['w'] == true) { if (normalMode) { controls.moveForward(0.04) } else { controls.moveForward(-0.04) } }
+        if (keys['s'] == true) { if (normalMode) { controls.moveForward(-0.04) } else { controls.moveForward(0.04) } }
+        if (keys['a'] == true) { if (normalMode) { controls.moveRight(-0.04) } else { controls.moveRight(0.04) } }
+        if (keys['d'] == true) { if (normalMode) { controls.moveRight(0.04) } else { controls.moveRight(-0.04) } }
+      }
+    }
+
+    var vehicleSpeed = 0;
+    var vehicleSpeedBackward = 0;
+
+    function drive(name, delta) {
+      if (vehicleSpeed < 0) vehicleSpeed = 0;
+      if (vehicleSpeedBackward < 0) vehicleSpeedBackward = 0;
+      if (name) aim.style.visibility = 'hidden';
+      var relativeCameraOffset = new THREE.Vector3(0, -190, 200);
+      if (name == 'jeep') {
+        relativeCameraOffset = new THREE.Vector3(0, 3, 3);
+        if (jeepGroup.position.z < -39) jeepGroup.position.z = -39;
+        if (jeepGroup.position.z > 35) jeepGroup.position.z = 35;
+        if (jeepGroup.position.x > 43) jeepGroup.position.x = 43;
+        if (jeepGroup.position.x < -46) jeepGroup.position.x = -46;
+        if (jeepGroup && driving) var cameraOffset = relativeCameraOffset.applyMatrix4(jeepGroup.matrixWorld);
+
+        if (jeep && driving) camera.position.x = cameraOffset.x;
+        if (jeep && driving) camera.position.y = cameraOffset.y - 1;
+        if (jeep && driving) camera.position.z = cameraOffset.z;
+        if (jeepGroup && driving) camera.lookAt(jeepGroup.position);
+
+
+        if (jeepGroup && driving) jeepGroup.translateZ(- (vehicleSpeed * delta))
+        if (jeepGroup && driving) jeepGroup.translateZ(+ (vehicleSpeedBackward * delta))
+        if (jw1 && jw2 && jw3 && jw4) {
+          jw1.rotation.x -= (vehicleSpeed - vehicleSpeedBackward + 0.01) * delta;
+          jw2.rotation.x -= (vehicleSpeed - vehicleSpeedBackward + 0.01) * delta;
+          jw3.rotation.x -= (vehicleSpeed - vehicleSpeedBackward + 0.01) * delta;
+          jw4.rotation.x -= (vehicleSpeed - vehicleSpeedBackward + 0.01) * delta;
+        }
+
+
+        if (keys['w'] && driving && vehicleSpeed < 7) { vehicleSpeed += .05 };
+        if (!keys['w'] && driving) { vehicleSpeed -= .1 };
+        if (keys['s'] && driving && vehicleSpeedBackward < 4) { vehicleSpeedBackward += .03 }
+        if (!keys['s'] && driving && vehicleSpeedBackward > 0) { vehicleSpeedBackward -= .06 }
+        if (keys['a'] && vehicleSpeed > 0) { jeepGroup.rotation.y += 1 * (Math.PI / 180) }
+        if (keys['d'] && vehicleSpeed > 0) { jeepGroup.rotation.y -= 1 * (Math.PI / 180) }
+
+        if (keys['a'] && vehicleSpeedBackward > 0) { jeepGroup.rotation.y -= 1 * (Math.PI / 180) }
+        if (keys['d'] && vehicleSpeedBackward > 0) { jeepGroup.rotation.y += 1 * (Math.PI / 180) }
+      }
+
+      if (name == 'motor') {
+        motorGroup.add(motorMinifig)
+        relativeCameraOffset = new THREE.Vector3(0, 2.8, 2.5);
+
+
+        if (motorGroup.position.z < -39) motorGroup.position.z = -39;
+        if (motorGroup.position.z > 35) motorGroup.position.z = 35;
+        if (motorGroup.position.x > 43) motorGroup.position.x = 43;
+        if (motorGroup.position.x < -46) motorGroup.position.x = -46;
+        if (motor && driving) var cameraOffset = relativeCameraOffset.applyMatrix4(motorGroup.matrixWorld);
+
+        if (motor && driving) camera.position.x = cameraOffset.x;
+        if (motor && driving) camera.position.y = cameraOffset.y - 1;
+        if (motor && driving) camera.position.z = cameraOffset.z;
+        if (motor && driving) { camera.lookAt(motorGroup.position) }
+
+        if (motor && driving) motorGroup.translateZ(- (vehicleSpeed * delta));
+        if (motor && driving) motorGroup.translateZ(+ (vehicleSpeedBackward * delta));
+        if (motorW) motorW.rotation.x -= (vehicleSpeed - vehicleSpeedBackward + 0.01) * delta;
+
+        if (keys['w'] && driving && vehicleSpeed < 10) { vehicleSpeed += .07 };
+        if (!keys['w'] && driving) { vehicleSpeed -= .09 };
+        if (keys['s'] && driving && vehicleSpeedBackward < 2) { vehicleSpeedBackward += .009 }
+        if (!keys['s'] && driving && vehicleSpeedBackward > 0) { vehicleSpeedBackward -= .06 }
+        if (keys['a'] && driving && vehicleSpeed > 0) { motorGroup.rotation.y += 1 * (Math.PI / 180); motorGroup.rotation.z = 5 * (Math.PI / 180) }
+        if (keys['d'] && driving && vehicleSpeed > 0) { motorGroup.rotation.y -= 1 * (Math.PI / 180); motorGroup.rotation.z = -5 * (Math.PI / 180) }
+
+        if (keys['a'] && driving && vehicleSpeedBackward > 0) { motorGroup.rotation.y -= 1 * (Math.PI / 180); motorGroup.rotation.z = 5 * (Math.PI / 180) }
+        if (keys['d'] && driving && vehicleSpeedBackward > 0) { motorGroup.rotation.y += 1 * (Math.PI / 180); motorGroup.rotation.z = -5 * (Math.PI / 180) }
+
+        if (driving && keys['a'] == false && keys['d'] == false) motorGroup.rotation.z = 0;
+      }
+
+      if (name == 'ambulance') {
+        if (amb.position.z < -39) amb.position.z = -39;
+        if (amb.position.z > 35) amb.position.z = 35;
+        if (amb.position.x > 43) amb.position.x = 43;
+        if (amb.position.x < -46) amb.position.x = -46;
+        if (amb && driving) var cameraOffset = relativeCameraOffset.applyMatrix4(amb.matrixWorld);
+
+        if (amb && driving) camera.position.x = cameraOffset.x;
+        if (amb && driving) camera.position.y = cameraOffset.y - .8;
+        if (amb && driving) camera.position.z = cameraOffset.z;
+        if (amb && driving) camera.lookAt(amb.position);
+
+        if (amb && driving) amb.translateZ(- (vehicleSpeed * delta))
+        if (amb && driving) amb.translateZ(+ (vehicleSpeedBackward * delta));
+
+        if (keys['w'] && driving && vehicleSpeed < 6) { vehicleSpeed += .03 };
+        if (!keys['w'] && driving) { vehicleSpeed -= .4 };
+        if (keys['s'] && driving && vehicleSpeedBackward < 2) { vehicleSpeedBackward += .009 }
+        if (!keys['s'] && driving && vehicleSpeedBackward > 0) { vehicleSpeedBackward -= .06 }
+        if (keys['a'] && vehicleSpeed > 0) { amb.rotation.y -= 1 * (Math.PI / 180) }
+        if (keys['d'] && vehicleSpeed > 0) { amb.rotation.y += 1 * (Math.PI / 180) }
+
+        if (keys['a'] && vehicleSpeedBackward > 0) { amb.rotation.y += 1 * (Math.PI / 180) }
+        if (keys['d'] && vehicleSpeedBackward > 0) { amb.rotation.y -= 1 * (Math.PI / 180) }
+      }
+
+      if (name == 'tractor') {
+        group.add(tractorMinifig)
+        relativeCameraOffset = new THREE.Vector3(0, 3, 3);
+        if (tractor.position.z < -39) tractor.position.z = -39;
+        if (tractor.position.z > 35) tractor.position.z = 35;
+        if (tractor.position.x > 43) tractor.position.x = 43;
+        if (tractor.position.x < -46) tractor.position.x = -46;
+
+        if (tractor && driving) var cameraOffset = relativeCameraOffset.applyMatrix4(group.matrixWorld);
+
+        if (tractor && driving) camera.position.x = cameraOffset.x;
+        if (tractor && driving) camera.position.y = cameraOffset.y - .8;
+        if (tractor && driving) camera.position.z = cameraOffset.z;
+
+        if (tractor && driving) camera.lookAt(group.position);
+
+
+        if (tractor && driving) group.translateZ(- (vehicleSpeed * delta));
+        if (tractor && driving) group.translateZ(+ (vehicleSpeedBackward * delta));
+
+        c2.rotation.x -= (vehicleSpeed - vehicleSpeedBackward + 0.01) * delta;
+        c3.rotation.x -= (vehicleSpeed - vehicleSpeedBackward + 0.01) * delta;
+        c4.rotation.x -= (vehicleSpeed - vehicleSpeedBackward + 0.01) * delta;
+        c1.rotation.x -= (vehicleSpeed - vehicleSpeedBackward + 0.01) * delta;
+
+
+        if (keys['w'] && driving && vehicleSpeed < 3) {
+          vehicleSpeed += .01;
+
+        };
+        if (!keys['w'] && driving) { vehicleSpeed -= .05 };
+        if (keys['s'] && driving && vehicleSpeedBackward < 2) { vehicleSpeedBackward += .009 }
+        if (!keys['s'] && driving && vehicleSpeedBackward > 0) { vehicleSpeedBackward -= .06 }
+        if (keys['a'] && vehicleSpeed > 0) { group.rotation.y += 1 * (Math.PI / 180) }
+        if (keys['d'] && vehicleSpeed > 0) { group.rotation.y -= 1 * (Math.PI / 180) }
+
+        if (keys['a'] && vehicleSpeedBackward > 0) { group.rotation.y -= 1 * (Math.PI / 180) }
+        if (keys['d'] && vehicleSpeedBackward > 0) { group.rotation.y += 1 * (Math.PI / 180) }
+
+      }
+    };
+
+    function handleDoor(obj) {
+
+      if (obj['door'].move) {
+        if (!obj['door'].rev) {
+          houseDoor.rotation.y -= .05;
+          if (houseDoor.rotation.y <= -1.4) { obj['door'].move = false; obj['door'].rev = true };
+        }
+
+        if (obj['door'].rev) {
+          houseDoor.rotation.y += .05;
+          if (houseDoor.rotation.y >= 0) { obj['door'].move = false; obj['door'].rev = false; }
+        }
+      }
+
+      if (obj['window'].move) {
+        if (!obj['window'].rev) {
+          houseWindow.rotation.y -= .05;
+          if (houseWindow.rotation.y <= -1.4) { obj['window'].move = false; obj['window'].rev = true };
+        }
+
+        if (obj['window'].rev) {
+          houseWindow.rotation.y += .05;
+          if (houseWindow.rotation.y >= 0) { obj['window'].move = false; obj['window'].rev = false; }
+        }
+      }
+
+      if (obj['wcdoor'].move) {
+        if (!obj['wcdoor'].rev) {
+          wcDoor.rotation.y += .05;
+          if (wcDoor.rotation.y >= 0.08) { obj['wcdoor'].move = false; obj['wcdoor'].rev = true };
+        }
+
+        if (obj['wcdoor'].rev) {
+          wcDoor.rotation.y -= .05;
+          if (wcDoor.rotation.y <= -1.57) { obj['wcdoor'].move = false; obj['wcdoor'].rev = false; }
+        }
+      }
+
+      if (obj['jdoor'].move) {
+        if (!obj['jdoor'].rev) {
+          jdoor.rotation.y -= .05;
+          if (jdoor.rotation.y <= -3.09) { obj['jdoor'].move = false; obj['jdoor'].rev = true };
+        }
+
+        if (obj['jdoor'].rev) {
+          jdoor.rotation.y += .05;
+          if (jdoor.rotation.y >= -1.5708) { obj['jdoor'].move = false; obj['jdoor'].rev = false; }
+        }
+      }
+
+      if (obj['mdoor'].move) {
+        if (!obj['mdoor'].rev) {
+          mdoor.rotation.y += .05;
+          if (mdoor.rotation.y >= 1.54) { obj['mdoor'].move = false; obj['mdoor'].rev = true };
+        }
+
+        if (obj['mdoor'].rev) {
+          mdoor.rotation.y -= .05;
+          if (mdoor.rotation.y <= 0) { obj['mdoor'].move = false; obj['mdoor'].rev = false; }
+        }
+      }
+
+      if (obj['ghdoor'].move) {
+        if (!obj['ghdoor'].rev) {
+          ghdoor.rotation.y -= .05;
+          if (ghdoor.rotation.y <= -1.6) { obj['ghdoor'].move = false; obj['ghdoor'].rev = true };
+        }
+
+        if (obj['ghdoor'].rev) {
+          ghdoor.rotation.y += .05;
+          if (ghdoor.rotation.y >= 0) { obj['ghdoor'].move = false; obj['ghdoor'].rev = false; }
+        }
+      }
+
+      if (obj['boxDoor'].move) {
+        if (!obj['boxDoor'].rev) {
+          boxDoor.rotation.x += .05;
+          if (boxDoor.rotation.x >= 4.72) { obj['boxDoor'].move = false; obj['boxDoor'].rev = true };
+        }
+
+        if (obj['boxDoor'].rev) {
+          boxDoor.rotation.x -= .05;
+          if (boxDoor.rotation.x <= 3.16) { obj['boxDoor'].move = false; obj['boxDoor'].rev = false; }
+        }
+      }
+
+      if (obj['postDoor'].move) {
+        if (!obj['postDoor'].rev) {
+          postDoor.rotation.y -= .05;
+          if (postDoor.rotation.y <= 0) { obj['postDoor'].move = false; obj['postDoor'].rev = true };
+        }
+
+        if (obj['postDoor'].rev) {
+          postDoor.rotation.y += .05;
+          if (postDoor.rotation.y >= 1.5707963267948966) { obj['postDoor'].move = false; obj['postDoor'].rev = false; }
+        }
+      }
+    };
+
+    function animate(time) {
+      var delta = clock.getDelta();
+      if (scene.children.includes(pointLight)) { pointLight.position.x = camera.position.x; pointLight.position.z = camera.position.z; pointLight.position.y = camera.position.y; }
+      if (planeGroup && planeP) planeP.rotation.z += .35;
+      if (plane && fly) { planeGroup.translateZ(.14) };
+      if (planeGroup) { planeGroup.rotation.y += .3 * Math.PI / 180; }
+
+      if (sink && pShip.position.y > -10) {
+        pShip.position.y -= sinkSpeed;
+        sinkSpeed += 0.00000017;
+        pShip.rotation.x += 0.00013;
+      }
+      if (sink && pShip.position.y <= -5 && pShip) { scene.remove(pShip); sink = false; handleMessage('win') }
+
+      if (boat && boat.rotation.y == Math.PI / 2) { boat.position.x -= boatSpeed };
+      if (boat && boat.position.x >= 49) { boat.rotation.y = Math.PI };
+      if (boat && boat.rotation.y == Math.PI) { boat.position.z -= boatSpeed };
+      if (boat && boat.position.z >= 44) { boat.rotation.y = Math.PI + Math.PI / 2 };
+      if (boat && boat.rotation.y == Math.PI + Math.PI / 2) { boat.position.x += boatSpeed; }
+      if (boat && boat.position.x <= -52) { boat.rotation.y = 2 * Math.PI };
+      if (boat && boat.rotation.y == 2 * Math.PI) { boat.position.z += boatSpeed };
+      if (boat && boat.position.z <= -43) { boat.rotation.y = Math.PI / 2 }
+
+      walk();
+      drive(vehicleName, delta);
+
+      if (swingpart && swingForward) swingpart.rotation.x += delta / 3;
+      if (swingpart && swingpart.rotation.x >= 3.6) swingForward = false;
+      if (swingpart && !swingForward) swingpart.rotation.x -= delta / 3;
+      if (swingpart && swingpart.rotation.x <= 2.8) swingForward = true;
+
+      if (mbaner) mbaner.rotation.y += .01;
+      if (jbaner) jbaner.rotation.y += .01;
+
+      handleDoor(openClose);
+
+      raycaster.setFromCamera(pointer, camera);
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+
+</html>

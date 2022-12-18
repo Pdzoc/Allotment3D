@@ -1,0 +1,317 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+}
+
+.starter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-image: url(./graphics/background2.jpg);
+  background-size: cover;
+  background-position: center;
+  text-align: center;
+}
+
+meter {
+  width: 400px;
+}
+
+.starter img {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-height: 120px;
+  border-radius: 10px;
+}
+
+.aim {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: white;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50);
+  border-radius: 50%;
+  visibility: hidden;
+}
+
+section {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  height: 1.5em;
+  padding: 5px;
+  color: black;
+  font-size: 2.5em;
+  background: goldenrod;
+  border-radius: 5%;
+  font-family: 'VT323', monospace;
+
+}
+
+.display {
+  position: absolute;
+  left: 50%;
+  top: 100px;
+  transform: translateX(-50%);
+  width: 50%;
+  min-height: 200px;
+  background: wheat;
+  text-align: center;
+  font-size: large;
+  z-index: 1;
+}
+
+.display div {
+  margin-top: 20px;
+  font-family: cursive;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.display input {
+  width: 1.5em;
+  font-family: cursive;
+  font-size: 40px;
+  border: none;
+  background: none;
+  outline: none;
+  border-bottom: 2px solid black;
+  margin-top: 2px;
+}
+
+.display button {
+  margin-top: 40px;
+  font-size: 40px;
+}
+
+#collection {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(gold, green);
+  top: 0;
+  left: 0;
+  padding: 30px 100px;
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  overflow: auto;
+}
+
+#collection img {
+  width: 400px;
+  border: 3px solid red;
+  margin-bottom: 20px;
+}
+
+.hidden {
+  display: none;
+}
+
+#story {
+  text-align: center;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-color: black;
+  left: 0;
+  top: 0;
+  z-index: 99;
+}
+
+#story img {
+  height: 100%;
+}
+
+#unclee {
+  width: 50%;
+  background: rgb(153, 224, 45);
+  border: solid green;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px;
+  font-size: larger;
+  text-align: justify;
+}
+
+#unclee img {
+  width: 120px;
+  border-bottom: 2px solid black;
+}
+
+#buttons {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, 10%);
+
+}
+
+#buttons * {
+  margin-bottom: 5px;
+  background: yellowgreen;
+  font-size: 40px;
+  font-family: 'VT323', monospace;
+}
+
+#start_game {
+  border: none;
+  cursor: pointer;
+}
+
+#notes {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40%;
+  transform: translate(-50%, -50%);
+  background-color: cornflowerblue;
+  border: 2px solid blue;
+  padding: 10px;
+  min-height: 300px;
+  max-height: 300px;
+  overflow: auto;
+  font-size: larger;
+}
+
+#mail {
+  width: 100px;
+  position: absolute;
+  top: 1%;
+  right: 1%;
+
+}
+
+#mail img {
+  width: 100%;
+  animation: envelope 1200ms linear infinite;
+}
+
+@keyframes envelope {
+  0% {
+    transform: scale(.9)
+  }
+
+  50% {
+    transform: scale(1)
+  }
+
+  100% {
+    transform: scale(.9)
+  }
+}
+
+#loadfield {
+  width: 0%;
+}
+
+.panel img {
+  width: 50px;
+}
+
+#lives-baner {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+}
+
+.player {
+  width: 120px;
+}
+
+#riddle {
+  width: 40%;
+  min-height: 200px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: grey;
+  text-align: center;
+  font-size: 30px;
+  padding: 10px;
+  border: 5px solid #333;
+  border-radius: 20px;
+  background: linear-gradient(gray, red);
+}
+
+#riddle p {
+  font-family: 'VT323', monospace;
+  font-size: larger;
+
+}
+
+#riddleAns {
+  border: none;
+  background: none;
+  border-bottom: 2px solid;
+  font-size: larger;
+  width: 100px;
+  outline: none;
+}
+
+#riddleCheckField {
+  border-radius: 50px;
+  background: #a47cd5;
+  border: 2px solid purple;
+  width: 50px;
+  height: 50px;
+  font-size: larger;
+  font-family: 'VT323', monospace;
+}
+
+.hidden {
+  visibility: hidden;
+}
+
+a {
+  text-decoration: none;
+  color: black;
+}
+
+#lose {
+  width: 100%;
+  height: 100vh;
+  position: absolute;
+  z-index: 99;
+  background-image: url(./graphics/lose.png);
+  top: 0;
+left: 0;
+background-position-x: center;
+}
+
+#mouse {
+  z-index: 99;
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  max-height: 150px;
+}
+
+#closingButton {
+  position: absolute;
+right: 10px;
+top: -20px;
+}
