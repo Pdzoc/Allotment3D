@@ -1,5 +1,9 @@
 # ALLOTMENT 3D
 
+## Play online:
+- https://pdzoc.github.io/Allotment3D
+- https://allotment3d.netlify.app
+
 ## Info
 * Language: ENG / PL
 * Age: probably 7+ (multiplication in game)
