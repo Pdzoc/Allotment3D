@@ -4,6 +4,11 @@
 - https://pdzoc.github.io/Allotment3D
 - https://allotment3d.netlify.app
 
+## Running localy:
+You need a local web server due to using LDrawLoader.
+
+See: [How to run things locally](https://threejs.org/docs/#manual/en/introduction/How-to-run-things-locally) from Three.js docs
+
 ## Info
 * Language: ENG / PL
 * Age: probably 7+ (multiplication in game)
